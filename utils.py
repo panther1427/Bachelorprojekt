@@ -147,3 +147,7 @@ def factor_model_solution(X, k, x0_guess=None):
     lambda_hat = psi_hat ** 0.5 @ lambda_star
 
     return (psi_hat, lambda_hat)
+
+
+def get_amount_of_solution():
+    ...
