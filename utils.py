@@ -110,6 +110,7 @@ def calculate_objective(specific_variance, X_data, k, standardized=True):
 
     return result
 
+
 def factor_model_solution(X, k, x0_guess=None, standardized=True):
     """
     Optimize the factor model w.r.t. psi, and calculate psi hat and lambda hat.
@@ -161,6 +162,80 @@ def factor_model_solution(X, k, x0_guess=None, standardized=True):
     lambda_hat = psi_hat ** 0.5 @ lambda_star
 
     return (psi_hat, lambda_hat)
+
+
+def calculate_objective_correlation_matrix(specific_variance, correlation_matrix, k, standardized=True):
+    """
+    Calculate the factor model maximum likelihood objective function.
+
+    Parameters
+    ---
+    specific_variance:  (p,) arraylike
+        The specific variances for each variable
+    
+    X_data: (n, p) arraylike
+
+    k: float
+        Number of factors
+
+    standardized:       boolean
+        Whether to use correlation matrix (standardized variables) or the covariance matrix
+        in calculations.
+
+    Returns
+    ---
+    Objective function value: float
+    """
+    p = correlation_matrix.shape[1]
+
+    # Step 1
+    S = correlation_matrix
+    Psi = np.diag(specific_variance)
+    Psi_sq_inv = np.linalg.inv(Psi ** 0.5)
+    S_star = Psi_sq_inv @ S @ Psi_sq_inv
+
+    # Step 2
+    eigval, eigvec = np.linalg.eig(S_star)
+
+    # Step 3
+    lambda_star = []
+    for i in range(k):
+        lambda_star.append(max(eigval[i] - 1, 0) ** 0.5 * eigvec[:,i])
+    lambda_star = np.array(lambda_star).T
+
+    # Step 4
+    lambda_hat = Psi ** 0.5 @ lambda_star
+
+    # Step 5
+    internal = np.linalg.inv(lambda_hat @ lambda_hat.T + Psi) @ S
+    result = np.trace(internal) - np.log(np.linalg.det(internal)) - p
+
+    return result
+
+
+def factor_model_solution_correlation_matrix(correlation_matrix, k, x0_guess = None, standardized = None):
+    if x0_guess == None:
+        x0_guess = np.ones(correlation_matrix.shape[1])
+
+    # Optimize
+    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=True),
+                       x0=x0_guess)
+    
+    psi_hat = np.diag(np.exp(problem.x))
+
+    # Calculate lambda hat
+    S = correlation_matrix
+    Psi_sq_inv = np.linalg.inv(psi_hat ** 0.5)
+    S_star = Psi_sq_inv @ S @ Psi_sq_inv
+    eigval, eigvec = np.linalg.eig(S_star)
+    lambda_star = []
+    for i in range(k):
+        lambda_star.append(max(eigval[i] - 1, 0) ** 0.5 * eigvec[:,i])
+    lambda_star = np.array(lambda_star).T
+    lambda_hat = psi_hat ** 0.5 @ lambda_star
+
+    return (psi_hat, lambda_hat)
+
 
 def open_closed_data():
     mechanics = [77, 63, 75, 55, 63, 53, 51, 59, 62, 64, 52, 55, 50 , 65, 31, 60, 44, 42, 62, 31, 44, 49, 12, 49, 54, 54, 44, 18, 46, 32, 30, 46, 40, 31, 36, 56, 46, 45, 42, 40, 23, 48, 41, 46, 46, 40, 49, 22, 35, 48, 31, 17, 49, 59, 37, 40, 35, 38, 43, 39, 62, 48, 34, 18, 35, 59, 41, 31, 17, 34, 46, 10, 46, 30, 13, 49, 18, 8, 23, 30, 3, 7, 15, 15, 5, 12, 5, 0]
