@@ -25,14 +25,19 @@ def sim_factor_model(loadings, specific_variance_vec, mu, nsim=1, verbose=True):
     Parameters
     ---
     loadings:           (p, k) matrix
+        Factorloadings
 
-    specific_variance:  (p, p) diagonal matrix of specific variances
+    specific_variance:  (p, p) matrix
+        diagonal matrix of specific variances
 
-    mu:                 (p, 1) vector of means
+    mu:                 (p, 1) vector 
+        Means vector
 
-    nsim:               flaot How many observations should be simulated
+    nsim:               float 
+        How many observations should be simulated
 
-    verbose:            Boolean, whether to print k and p
+    verbose:            boolean
+        whether to print k and p
 
     Returns
     ---
@@ -57,7 +62,7 @@ def sim_factor_model(loadings, specific_variance_vec, mu, nsim=1, verbose=True):
     return X
 
 
-def calculate_objective(specific_variance, X_data, k):
+def calculate_objective(specific_variance, X_data, k, standardized=True):
     """
     Calculate the factor model maximum likelihood objective function.
 
@@ -71,13 +76,18 @@ def calculate_objective(specific_variance, X_data, k):
     k: float
         Number of factors
 
+    standardized:       boolean
+        Whether to use correlation matrix (standardized variables) or the covariance matrix
+        in calculations.
+
     Returns
     ---
     Objective function value: float
     """
+    p = X_data.shape[1]
 
     # Step 1
-    S = np.cov(X_data.T)
+    S = np.corrcoef(X_data.T) if standardized else np.cov(X_data.T)
     Psi = np.diag(specific_variance)
     Psi_sq_inv = np.linalg.inv(Psi ** 0.5)
     S_star = Psi_sq_inv @ S @ Psi_sq_inv
@@ -96,11 +106,11 @@ def calculate_objective(specific_variance, X_data, k):
 
     # Step 5
     internal = np.linalg.inv(lambda_hat @ lambda_hat.T + Psi) @ S
-    result = np.trace(internal) - np.log(np.linalg.det(internal))
+    result = np.trace(internal) - np.log(np.linalg.det(internal)) - p
 
     return result
 
-def factor_model_solution(X, k, x0_guess=None):
+def factor_model_solution(X, k, x0_guess=None, standardized=True):
     """
     Optimize the factor model w.r.t. psi, and calculate psi hat and lambda hat.
 
@@ -117,6 +127,10 @@ def factor_model_solution(X, k, x0_guess=None):
         If x0_guess is None,
         then default guess is specific variance 1 for all variables.
 
+    standardized:       boolean
+        Whether to use correlation matrix (standardized variables) or the covariance matrix
+        in calculations.
+
     Returns
     ---
     Tuple (psi_hat, lambda_hat) where:
@@ -130,13 +144,13 @@ def factor_model_solution(X, k, x0_guess=None):
         x0_guess = np.ones(X.shape[1])
 
     # Optimize
-    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k),
+    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=True),
                        x0=x0_guess)
     
     psi_hat = np.diag(np.exp(problem.x))
 
     # Calculate lambda hat
-    S = np.cov(X.T)
+    S = np.corrcoef(X.T) if standardized else np.cov(X.T)
     Psi_sq_inv = np.linalg.inv(psi_hat ** 0.5)
     S_star = Psi_sq_inv @ S @ Psi_sq_inv
     eigval, eigvec = np.linalg.eig(S_star)
@@ -147,3 +161,11 @@ def factor_model_solution(X, k, x0_guess=None):
     lambda_hat = psi_hat ** 0.5 @ lambda_star
 
     return (psi_hat, lambda_hat)
+
+def open_closed_data():
+    mechanics = [77, 63, 75, 55, 63, 53, 51, 59, 62, 64, 52, 55, 50 , 65, 31, 60, 44, 42, 62, 31, 44, 49, 12, 49, 54, 54, 44, 18, 46, 32, 30, 46, 40, 31, 36, 56, 46, 45, 42, 40, 23, 48, 41, 46, 46, 40, 49, 22, 35, 48, 31, 17, 49, 59, 37, 40, 35, 38, 43, 39, 62, 48, 34, 18, 35, 59, 41, 31, 17, 34, 46, 10, 46, 30, 13, 49, 18, 8, 23, 30, 3, 7, 15, 15, 5, 12, 5, 0]
+    vectors = [82, 78, 73, 72, 63, 61, 67, 70, 60, 72, 64, 67, 50, 63, 55, 64, 69,69,46,49, 61, 41, 58, 53, 49, 53, 56, 44, 52, 45, 69, 49, 27, 42, 59, 40, 56, 42, 60, 63, 55, 48, 63, 52, 61, 57, 49, 58, 60, 56, 57, 53, 57, 50, 56, 43, 35, 44, 43, 46, 44, 38,42, 51, 36, 53, 41, 52, 51, 30, 40, 46, 37, 34, 51, 50, 32, 42, 38, 24, 9, 51, 40, 38, 30, 30, 26, 40]
+    algebra = [67, 80, 71, 63, 65, 72, 65, 68, 58, 60, 60, 59, 64, 58, 60, 56, 53, 61 ,61, 62, 52, 61, 61, 49, 56, 46, 55, 50, 65, 49, 50, 53, 54, 48, 51, 56, 57, 55, 54, 53, 59, 49, 49, 53, 46, 51, 45, 53, 47, 49, 50, 57, 47, 47, 49, 48, 41, 54, 38, 46, 36, 41, 50, 40, 46, 37, 43, 37, 52, 50, 47, 36, 45, 43, 50, 38, 31, 48, 36, 43, 51, 43, 43, 39, 44, 32, 15, 21]
+    analysis = [67, 70, 66, 70, 70, 64, 65, 62, 62, 62, 63, 62, 55, 56, 57, 54, 53, 55, 57, 63, 62, 49, 63, 62, 47, 59, 61, 57, 50, 57, 52, 59, 61, 54, 45, 54, 49, 56, 49, 54, 53, 51, 46, 41, 38, 52, 48, 56, 54, 42, 54, 43, 39, 15, 28, 21, 51, 47, 34, 32, 22, 44, 47, 56, 48, 22, 30, 27, 35, 47, 29, 47, 15, 46, 25, 23, 45, 26, 48, 33, 47, 17, 23, 28, 36, 35, 20, 9]
+    statistics = [81, 81, 81, 68, 63, 73, 68, 56, 70, 45, 54, 44, 63, 37, 73, 40, 53, 45, 45, 62, 46, 64, 67, 47, 53, 44, 36, 81, 35, 64, 45, 37, 61, 68, 51, 35, 32, 40, 33, 25, 44, 37, 34, 40, 41, 31, 39, 41, 33, 32, 34, 51, 26, 46, 45, 61, 50, 24, 49, 43, 42, 33, 29, 30, 29, 19, 33, 40, 31, 36, 17, 39, 30, 18, 31, 9, 40, 40, 15, 25, 40, 22, 18, 17, 18, 21, 20, 14]
+    return np.array([mechanics, vectors, algebra, analysis, statistics]).T
