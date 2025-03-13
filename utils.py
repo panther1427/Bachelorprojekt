@@ -218,7 +218,7 @@ def factor_model_solution_correlation_matrix(correlation_matrix, k, x0_guess = N
         x0_guess = np.ones(correlation_matrix.shape[1])
 
     # Optimize
-    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=True),
+    problem = minimize(fun=lambda x: calculate_objective_correlation_matrix(np.exp(x), correlation_matrix=correlation_matrix, k=k, standardized=True),
                        x0=x0_guess)
     
     psi_hat = np.diag(np.exp(problem.x))
