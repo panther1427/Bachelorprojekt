@@ -69,15 +69,15 @@ def calculate_objective(specific_variance, X_data, k, standardized=True):
 
     Parameters
     ---
-    specific_variance:  (p,) arraylike
+    specific_variance : (p,) arraylike
         The specific variances for each variable
     
-    X_data: (n, p) arraylike
+    X_data : (n, p) arraylike
 
     k: float
         Number of factors
 
-    standardized:       boolean
+    standardized :       boolean
         Whether to use correlation matrix (standardized variables) or the covariance matrix
         in calculations.
 
@@ -134,18 +134,18 @@ def factor_model_solution(X, k, x0_guess=None, standardized=True):
 
     Returns
     ---
-    Tuple (psi_hat, lambda_hat) where:
+    tuple : (psi_hat, lambda_hat) 
+        where
+        psi_hat: (p,p) diagonal matrix. 
+        lambda_hat: (p, k) factor loadings matrix
     
-    psi_hat: (p,p) diagonal matrix
-
-    lambda_hat: (p, k) factor loadings matrix
     """
     
     if x0_guess == None:
         x0_guess = np.ones(X.shape[1])
 
     # Optimize
-    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=True),
+    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=standardized),
                        x0=x0_guess)
     
     psi_hat = np.diag(np.exp(problem.x))
@@ -184,15 +184,15 @@ def factor_goodness_of_fit_test(X, k):
     Calculate the p-value for the null hypothesis that k factors is sufficient to describe the data, 
     against the alternative that Sigma has no constraints.
 
-    Parameters:
+    Parameters
     ---
-    X:  (n, p) matrix
+    X :  (n, p) matrix
         Data matrix
 
-    k:  Integer
+    k :  Integer
         Number of factors to test for
     
-    Returns:
+    Returns
     ---
     p-value: float
         The p-value for the U statistic under the null hypothesis
