@@ -181,7 +181,7 @@ def calculate_s(p, k):
 
 def factor_goodness_of_fit_test(X, k):
     """
-    Calculate the p-value for the null hypothesis that k factors is sufficient to describe the data, 
+    Calculate the p-value for the null hypothesis that k factors are sufficient to describe the data, 
     against the alternative that Sigma has no constraints.
 
     Parameters
