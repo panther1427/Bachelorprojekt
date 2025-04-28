@@ -2,6 +2,8 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import chi2
 
+# This file is a collection of the functions developed in various notebooks in this project
+
 def sim_factor_model_slow(loadings, specific_variance, mu, nsim=1, verbose=True):
     """
     Equal to sim_factor_model. This is kept here as this method doesn't use vectorisation,
@@ -65,7 +67,7 @@ def sim_factor_model(loadings, specific_variance_vec, mu, nsim=1, verbose=True):
 
 def calculate_objective(specific_variance, X_data, k, standardized=True):
     """
-    Calculate the factor model maximum likelihood objective function.
+    Calculate the factor model maximum likelihood objective function, F.
 
     Parameters
     ---
