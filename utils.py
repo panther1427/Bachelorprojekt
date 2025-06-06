@@ -210,3 +210,64 @@ def factor_goodness_of_fit_test(X, k):
     U = objective * n_mark
     s = calculate_s(p, k)
     return chi2.sf(U, df=s)
+
+
+def phi_criterion(loadings):
+    """
+    calculate phi, without rotation.
+    """
+    p, k = loadings.shape
+    h_i = np.sqrt(np.sum(loadings ** 2, axis=1))
+    d = loadings / h_i[:,np.newaxis]
+    d_means = np.sum(d ** 2, axis=0) / p
+    phi = sum(sum((d[i,j] ** 2 - d_means[j]) ** 2 for i in range(p)) for j in range(k))
+    return phi
+
+def varimax_rotation(rotation_lambda):
+    k = rotation_lambda.shape[1]
+    pairs = [(i,j) for i in range(k - 1) for j in range(k) if j > i]
+
+    phi_iterations = []
+    # Begin a cycle
+    for ccl in range(10):
+        for i,j in pairs:
+            # Pick out columns i,j and convert to k = 2 subproblem
+            two_loadings_columns = np.array([rotation_lambda[:,i], rotation_lambda[:, j]]).T
+            theta_range = np.linspace(0, np.pi / 2, 100)
+
+            phis = []
+            for theta_rad in theta_range:
+                G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                            [-np.sin(theta_rad), np.cos(theta_rad)]])
+
+                delta_two = two_loadings_columns @ G
+                delta = rotation_lambda.copy()
+                delta[:,i] = delta_two[:,0]
+                delta[:,j] = delta_two[:,1]
+                phis.append(phi_criterion(delta))
+
+
+            theta_rad = theta_range[np.argmax(phis)] # Solution is given in a (1,) array
+
+
+            # Rotate columns
+            # theta_rad = np.deg2rad(theta)
+            G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                        [-np.sin(theta_rad), np.cos(theta_rad)]])
+            
+            rotated_two_loadings = two_loadings_columns @ G
+
+            # Replace old columns
+            rotation_lambda[:,i] = rotated_two_loadings[:,0]
+            rotation_lambda[:,j] = rotated_two_loadings[:,1]
+
+            print("cycle:", ccl, 
+                "theta:", np.rad2deg(theta_rad), 
+                "pair:", (i,j), 
+                "objective:", max(phis), 
+                sep="\t")
+
+            # Repeat
+        phi_iterations.append(phi_criterion(rotation_lambda))
+
+    return phi_iterations
