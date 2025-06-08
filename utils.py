@@ -210,3 +210,91 @@ def factor_goodness_of_fit_test(X, k):
     U = objective * n_mark
     s = calculate_s(p, k)
     return chi2.sf(U, df=s)
+
+def varimax(unrotated_loadings, verbose=False, maxIter=100):
+    """
+    Rotate loadings according to the optimum of the varimax criterion.
+
+    Parameters
+    ---
+    unrotated_loadings : (p, k) matrix
+        Factor loadings that should be rotated
+
+    verbose : boolean
+        Whether the function prints information about each rotation done
+
+    maxIter : integer
+        Maximum number of iteration. The algorithm will stop early if the criterion has converged.
+    
+    Returns
+    ---
+    rotated_loadings:   (p, k) matrix
+        Rotated factor loadings
+    """
+
+    def phi_criterion(loadings):
+        """
+        calculate phi; The varimax criterion
+        """
+        p, k = loadings.shape
+        h_i = np.sqrt(np.sum(loadings ** 2, axis=1))
+        d = loadings / h_i[:,np.newaxis]
+        d_means = np.sum(d ** 2, axis=0) / p
+        phi = sum(sum((d[i,j] ** 2 - d_means[j]) ** 2 for i in range(p)) for j in range(k))
+        return phi
+    
+    k = unrotated_loadings.shape[1]
+    pairs = [(i,j) for i in range(k - 1) for j in range(k) if j > i]
+
+    best_so_far = phi_criterion(unrotated_loadings)
+
+    for ccl in range(1, maxIter + 1):
+        for i,j in pairs:
+            # Pick out columns i,j and convert to k = 2 subproblem
+            two_loadings_columns = np.array([unrotated_loadings[:,i], unrotated_loadings[:, j]]).T
+            theta_range = np.linspace(0, np.pi / 2, 100)
+
+            phis = []
+            for theta_rad in theta_range:
+                G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                            [-np.sin(theta_rad), np.cos(theta_rad)]])
+
+                delta_two = two_loadings_columns @ G
+                delta = unrotated_loadings.copy()
+                delta[:,i] = delta_two[:,0]
+                delta[:,j] = delta_two[:,1]
+                phis.append(phi_criterion(delta))
+
+
+            theta_rad = theta_range[np.argmax(phis)] # Solution is given in a (1,) array
+
+
+            # Rotate columns
+            # theta_rad = np.deg2rad(theta)
+            G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                        [-np.sin(theta_rad), np.cos(theta_rad)]])
+            
+            rotated_two_loadings = two_loadings_columns @ G
+
+            # Replace old columns
+            unrotated_loadings[:,i] = rotated_two_loadings[:,0]
+            unrotated_loadings[:,j] = rotated_two_loadings[:,1]
+
+            if verbose:
+                print("cycle:", ccl, 
+                    "theta:", np.rad2deg(theta_rad), 
+                    "pair:", (i,j), 
+                    "objective:", max(phis), 
+                    sep="\t")
+            
+            # Repeat
+        phi = phi_criterion(unrotated_loadings)
+        if best_so_far < phi:
+            best_so_far = phi
+        else:
+            if verbose:
+                print("Phi has converged; Algorithm ending early.")
+            break
+    else:
+        print("Warning! Algorithm did not converge in ", maxIter, " cycles")
+    return unrotated_loadings
