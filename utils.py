@@ -90,7 +90,7 @@ def calculate_objective(specific_variance, X_data, k, standardized=True):
     p = X_data.shape[1]
 
     # Step 1
-    S = np.corrcoef(X_data.T) if standardized else np.cov(X_data.T)
+    S = np.corrcoef(X_data.T) + np.eye(p) if standardized else np.cov(X_data.T)
     Psi = np.diag(specific_variance)
     Psi_sq_inv = np.linalg.inv(Psi ** 0.5)
     S_star = Psi_sq_inv @ S @ Psi_sq_inv
