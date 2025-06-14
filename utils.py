@@ -2,6 +2,8 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.stats import chi2
 
+# This file is a collection of the functions developed in various notebooks in this project
+
 def sim_factor_model_slow(loadings, specific_variance, mu, nsim=1, verbose=True):
     """
     Equal to sim_factor_model. This is kept here as this method doesn't use vectorisation,
@@ -65,19 +67,19 @@ def sim_factor_model(loadings, specific_variance_vec, mu, nsim=1, verbose=True):
 
 def calculate_objective(specific_variance, X_data, k, standardized=True):
     """
-    Calculate the factor model maximum likelihood objective function.
+    Calculate the factor model maximum likelihood objective function, F.
 
     Parameters
     ---
-    specific_variance:  (p,) arraylike
+    specific_variance : (p,) arraylike
         The specific variances for each variable
     
-    X_data: (n, p) arraylike
+    X_data : (n, p) arraylike
 
     k: float
         Number of factors
 
-    standardized:       boolean
+    standardized :       boolean
         Whether to use correlation matrix (standardized variables) or the covariance matrix
         in calculations.
 
@@ -88,7 +90,7 @@ def calculate_objective(specific_variance, X_data, k, standardized=True):
     p = X_data.shape[1]
 
     # Step 1
-    S = np.corrcoef(X_data.T) if standardized else np.cov(X_data.T)
+    S = np.corrcoef(X_data.T) + np.eye(p) if standardized else np.cov(X_data.T)
     Psi = np.diag(specific_variance)
     Psi_sq_inv = np.linalg.inv(Psi ** 0.5)
     S_star = Psi_sq_inv @ S @ Psi_sq_inv
@@ -134,18 +136,18 @@ def factor_model_solution(X, k, x0_guess=None, standardized=True):
 
     Returns
     ---
-    Tuple (psi_hat, lambda_hat) where:
+    tuple : (psi_hat, lambda_hat) 
+        where
+        psi_hat: (p,p) diagonal matrix. 
+        lambda_hat: (p, k) factor loadings matrix
     
-    psi_hat: (p,p) diagonal matrix
-
-    lambda_hat: (p, k) factor loadings matrix
     """
     
     if x0_guess == None:
         x0_guess = np.ones(X.shape[1])
 
     # Optimize
-    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=True),
+    problem = minimize(fun=lambda x: calculate_objective(np.exp(x), X_data=X, k=k, standardized=standardized),
                        x0=x0_guess)
     
     psi_hat = np.diag(np.exp(problem.x))
@@ -181,18 +183,18 @@ def calculate_s(p, k):
 
 def factor_goodness_of_fit_test(X, k):
     """
-    Calculate the p-value for the null hypothesis that k factors is sufficient to describe the data, 
+    Calculate the p-value for the null hypothesis that k factors are sufficient to describe the data, 
     against the alternative that Sigma has no constraints.
 
-    Parameters:
+    Parameters
     ---
-    X:  (n, p) matrix
+    X :  (n, p) matrix
         Data matrix
 
-    k:  Integer
+    k :  Integer
         Number of factors to test for
     
-    Returns:
+    Returns
     ---
     p-value: float
         The p-value for the U statistic under the null hypothesis
@@ -208,3 +210,91 @@ def factor_goodness_of_fit_test(X, k):
     U = objective * n_mark
     s = calculate_s(p, k)
     return chi2.sf(U, df=s)
+
+def varimax(unrotated_loadings, verbose=False, maxIter=100):
+    """
+    Rotate loadings according to the optimum of the varimax criterion.
+
+    Parameters
+    ---
+    unrotated_loadings : (p, k) matrix
+        Factor loadings that should be rotated
+
+    verbose : boolean
+        Whether the function prints information about each rotation done
+
+    maxIter : integer
+        Maximum number of iteration. The algorithm will stop early if the criterion has converged.
+    
+    Returns
+    ---
+    rotated_loadings:   (p, k) matrix
+        Rotated factor loadings
+    """
+
+    def phi_criterion(loadings):
+        """
+        calculate phi; The varimax criterion
+        """
+        p, k = loadings.shape
+        h_i = np.sqrt(np.sum(loadings ** 2, axis=1))
+        d = loadings / h_i[:,np.newaxis]
+        d_means = np.sum(d ** 2, axis=0) / p
+        phi = sum(sum((d[i,j] ** 2 - d_means[j]) ** 2 for i in range(p)) for j in range(k))
+        return phi
+    
+    k = unrotated_loadings.shape[1]
+    pairs = [(i,j) for i in range(k - 1) for j in range(k) if j > i]
+
+    best_so_far = phi_criterion(unrotated_loadings)
+
+    for ccl in range(1, maxIter + 1):
+        for i,j in pairs:
+            # Pick out columns i,j and convert to k = 2 subproblem
+            two_loadings_columns = np.array([unrotated_loadings[:,i], unrotated_loadings[:, j]]).T
+            theta_range = np.linspace(0, np.pi / 2, 100)
+
+            phis = []
+            for theta_rad in theta_range:
+                G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                            [-np.sin(theta_rad), np.cos(theta_rad)]])
+
+                delta_two = two_loadings_columns @ G
+                delta = unrotated_loadings.copy()
+                delta[:,i] = delta_two[:,0]
+                delta[:,j] = delta_two[:,1]
+                phis.append(phi_criterion(delta))
+
+
+            theta_rad = theta_range[np.argmax(phis)] # Solution is given in a (1,) array
+
+
+            # Rotate columns
+            # theta_rad = np.deg2rad(theta)
+            G = np.array([[np.cos(theta_rad) , np.sin(theta_rad)],
+                        [-np.sin(theta_rad), np.cos(theta_rad)]])
+            
+            rotated_two_loadings = two_loadings_columns @ G
+
+            # Replace old columns
+            unrotated_loadings[:,i] = rotated_two_loadings[:,0]
+            unrotated_loadings[:,j] = rotated_two_loadings[:,1]
+
+            if verbose:
+                print("cycle:", ccl, 
+                    "theta:", np.rad2deg(theta_rad), 
+                    "pair:", (i,j), 
+                    "objective:", max(phis), 
+                    sep="\t")
+            
+            # Repeat
+        phi = phi_criterion(unrotated_loadings)
+        if best_so_far < phi:
+            best_so_far = phi
+        else:
+            if verbose:
+                print("Phi has converged; Algorithm ending early.")
+            break
+    else:
+        print("Warning! Algorithm did not converge in ", maxIter, " cycles")
+    return unrotated_loadings
