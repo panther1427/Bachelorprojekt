@@ -1,5 +1,5 @@
 ##-------------------
-## Varimax rotation
+## Varimax rotation - Solution by Asger Hobolth
 ##-------------------
 ## k=2
 LambdaMat <- matrix(c(1.5,0.1,
